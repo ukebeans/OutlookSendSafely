@@ -44,12 +44,16 @@ interface ConfirmDialogProps {
 
 const useStyles = makeStyles({
   container: {
-    padding: "20px",
+    padding: "16px",  // Reduced padding for better space usage
     display: "flex",
     flexDirection: "column",
-    gap: "20px",
-    maxHeight: "100vh",
+    gap: "16px",
+    maxHeight: "calc(100vh - 32px)", // Account for padding
     overflow: "auto",
+    '@media (max-width: 480px)': {  // Added responsive styling for smaller screens
+      padding: "12px",
+      gap: "12px",
+    },
   },
   title: {
     display: "flex",
@@ -74,9 +78,9 @@ const useStyles = makeStyles({
     display: "flex",
     flexDirection: "column",
     gap: "8px",
-    maxHeight: "200px",
+    maxHeight: "160px", // Reduced max height for better overall fit
     overflowY: "auto",
-    padding: "10px",
+    padding: "8px",
     backgroundColor: tokens.colorNeutralBackground1,
     borderRadius: tokens.borderRadiusMedium,
   },
@@ -84,9 +88,9 @@ const useStyles = makeStyles({
     display: "flex",
     flexDirection: "column",
     gap: "8px",
-    maxHeight: "200px",
+    maxHeight: "160px", // Reduced max height for better overall fit
     overflowY: "auto",
-    padding: "10px",
+    padding: "8px",
     backgroundColor: tokens.colorNeutralBackground1,
     borderRadius: tokens.borderRadiusMedium,
   },

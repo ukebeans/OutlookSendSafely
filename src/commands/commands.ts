@@ -41,7 +41,7 @@ function validateExternalRecipients(event: Office.AddinCommands.Event) {
   // Function to check if an email domain is external
   const isExternalDomain = (email: string): boolean => {
     // Check if the email ends with your organization's domain
-    return !email.toLowerCase().endsWith("@kairos.com");
+    return !email.toLowerCase().endsWith("@outlook.com");
   };
 
   // Get all recipients - using a more generic approach
@@ -160,13 +160,32 @@ function showExternalRecipientsDialog(
       window.sessionStorage.setItem('externalRecipientsData', JSON.stringify(dialogData));
     }
     
-    // Display the dialog
+    // Get the base URL for the add-in
+    const baseUrl = getBaseUrl();
+    
+    // Encode the data for URL parameters (useful for OWA where sessionStorage may not work)
+    const encodedData = encodeURIComponent(JSON.stringify(dialogData));
+    const dialogUrl = `${baseUrl}confirm-dialog.html?data=${encodedData}`;
+    
+    // Determine if we're in OWA by checking for browser features
+    const isOwa = isRunningInOwa();
+    
+    // Display the dialog with appropriate settings for the environment
     Office.context.ui.displayDialogAsync(
-      'https://localhost:3000/confirm-dialog.html',
-      { height: 60, width: 40, displayInIframe: true },
+      dialogUrl,
+      { 
+        height: 75,  // Increased height for better content display in OWA
+        width: 45,   // Slightly wider for better readability
+        displayInIframe: !isOwa, // Use popup for OWA, iframe for desktop
+        promptBeforeOpen: false
+      },
       (result) => {
         if (result.status === Office.AsyncResultStatus.Failed) {
           console.error(`Error displaying dialog: ${result.error.message}`);
+          console.error(`Dialog error code: ${result.error.code}`);
+          
+          // Show a fallback notification and let the send continue
+          showNotification("Cannot display confirmation dialog. Please check external recipients carefully.");
           event.completed({ allowEvent: true });
           return;
         }
@@ -195,18 +214,28 @@ function showExternalRecipientsDialog(
               const delayTime = new Date();
               delayTime.setMinutes(delayTime.getMinutes() + 15);
 
-              // Set delayed delivery time using the correct API
-              (Office.context.mailbox.item as any).delayDeliveryTime.setAsync(delayTime, (asyncResult) => {
-                if (asyncResult.status === Office.AsyncResultStatus.Failed) {
-                  console.error(`Failed to set delay: ${asyncResult.error.message}`);
+              // Check if delayDeliveryTime API is available
+              if (Office.context.mailbox.item && 'delayDeliveryTime' in Office.context.mailbox.item) {
+                // Set delayed delivery time using the correct API
+                (Office.context.mailbox.item as any).delayDeliveryTime.setAsync(delayTime, (asyncResult) => {
+                  if (asyncResult.status === Office.AsyncResultStatus.Failed) {
+                    console.error(`Failed to set delay: ${asyncResult.error.message}`);
+                    showNotification("Could not set the 15-minute delay, but email will be sent.");
+                    dialog.close();
+                    event.completed({ allowEvent: true });
+                    return;
+                  }
+                  
                   dialog.close();
-                  event.completed({ allowEvent: false });
-                  return;
-                }
-                
+                  event.completed({ allowEvent: true });
+                });
+              } else {
+                // If the API is not available, just send without delay
+                console.warn("delayDeliveryTime API not available in this Outlook version");
+                showNotification("15-minute delay not available in this version of Outlook. Email will be sent immediately.");
                 dialog.close();
                 event.completed({ allowEvent: true });
-              });
+              }
             } else if (messageFromDialog.action === 'cancel') {
               // User canceled sending
               dialog.close();
@@ -227,6 +256,65 @@ function showExternalRecipientsDialog(
       }
     );
   });
+}
+
+/**
+ * Shows a notification to the user
+ */
+function showNotification(message: string) {
+  const notificationMessage: Office.NotificationMessageDetails = {
+    type: Office.MailboxEnums.ItemNotificationMessageType.InformationalMessage,
+    message: message,
+    icon: "Icon.80x80",
+    persistent: true,
+  };
+
+  Office.context.mailbox.item?.notificationMessages.replaceAsync(
+    "ExternalRecipientsNotification",
+    notificationMessage
+  );
+}
+
+/**
+ * Gets the base URL of the add-in
+ */
+function getBaseUrl(): string {
+  // Try to determine the base URL from the current document
+  try {
+    // This works for commands.html
+    if (typeof window !== 'undefined' && window.location) {
+      const url = new URL(window.location.href);
+      const pathParts = url.pathname.split('/');
+      // Remove the last part (commands.html)
+      pathParts.pop();
+      return url.origin + pathParts.join('/') + '/';
+    }
+  } catch (e) {
+    console.error("Error determining base URL:", e);
+  }
+  
+  // Default to current origin or fallback for OWA
+  return typeof window !== 'undefined' && window.location ? 
+    window.location.origin + '/' : 
+    'https://localhost:3000/';
+}
+
+/**
+ * Determines if the add-in is running in Outlook Web Access
+ */
+function isRunningInOwa(): boolean {
+  if (Office.context.mailbox) {
+    // Use the host information from Office.context
+    const hostName = Office.context.mailbox.diagnostics?.hostName || '';
+    return hostName.indexOf('OWA') > -1 || hostName.indexOf('WebApp') > -1;
+  }
+  
+  // Fallback detection method
+  return typeof window !== 'undefined' && 
+         window.navigator && 
+         window.navigator.userAgent &&
+         (window.navigator.userAgent.indexOf('Outlook Web App') > -1 ||
+          window.navigator.userAgent.indexOf('OWA') > -1);
 }
 
 // Register the functions with Office

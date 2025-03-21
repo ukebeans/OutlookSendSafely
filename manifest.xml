@@ -11,6 +11,7 @@
   <SupportUrl DefaultValue="https://www.contoso.com/help"/>
   <AppDomains>
     <AppDomain>https://www.contoso.com</AppDomain>
+    <AppDomain>https://localhost:3000</AppDomain>
   </AppDomains>
   <Hosts>
     <Host Name="Mailbox"/>
@@ -26,6 +27,13 @@
         <SourceLocation DefaultValue="https://localhost:3000/commands.html"/>
         <RequestedHeight>250</RequestedHeight>
       </DesktopSettings>
+      <TabletSettings>
+        <SourceLocation DefaultValue="https://localhost:3000/commands.html"/>
+        <RequestedHeight>250</RequestedHeight>
+      </TabletSettings>
+      <PhoneSettings>
+        <SourceLocation DefaultValue="https://localhost:3000/commands.html"/>
+      </PhoneSettings>
     </Form>
   </FormSettings>
   <Permissions>ReadWriteItem</Permissions>
@@ -43,11 +51,22 @@
         <Host xsi:type="MailHost">
           <DesktopFormFactor>
             <FunctionFile resid="Commands.Url"/>            
-            <!-- Add event-based activation for on send -->
             <ExtensionPoint xsi:type="Events">
               <Event Type="ItemSend" FunctionExecution="synchronous" FunctionName="validateExternalRecipients"/>
             </ExtensionPoint>
           </DesktopFormFactor>
+          <WebFormFactor>
+            <FunctionFile resid="Commands.Url"/>
+            <ExtensionPoint xsi:type="Events">
+              <Event Type="ItemSend" FunctionExecution="synchronous" FunctionName="validateExternalRecipients"/>
+            </ExtensionPoint>
+          </WebFormFactor>
+          <TabletFormFactor>
+            <FunctionFile resid="Commands.Url"/>
+            <ExtensionPoint xsi:type="Events">
+              <Event Type="ItemSend" FunctionExecution="synchronous" FunctionName="validateExternalRecipients"/>
+            </ExtensionPoint>
+          </TabletFormFactor>
         </Host>
       </Hosts>
       <Resources>
